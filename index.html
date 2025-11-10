@@ -1,34 +1,176 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Tower Duel</title><style>
-body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif}
-#gameContainer{width:960px;margin:16px auto}.ui{text-align:center;margin-bottom:8px}
-.cards{display:flex;justify-content:center;gap:8px}.card{background:#222;padding:6px 10px;border-radius:6px;cursor:pointer;user-select:none}
-.card.locked{opacity:.5;cursor:not-allowed}
-</style><script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script></head><body>
-<div id="gameContainer"><div class="ui"><div>Elixir:<span id="elixir">0</span>/10</div>
-<div class="cards"><div class="card" id="card-1">Slinger(3)</div><div class="card" id="card-2">Giantling(5)</div><div class="card" id="card-3">Bolt(2)</div></div></div><div id="phaser-game"></div></div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tower Duel Portrait</title>
+<style>
+  body {margin:0; background:#111; color:#eee; font-family:Arial,sans-serif; display:flex; justify-content:center;}
+  #gameContainer {width:540px; height:960px; position:relative; background:#16324a;}
+  .ui {position:absolute; bottom:0; width:100%; text-align:center; margin-bottom:8px;}
+  .cards {display:flex; justify-content:center; flex-wrap:wrap; gap:4px;}
+  .card {background:#222; color:#fff; padding:6px 8px; border-radius:8px; cursor:pointer; user-select:none; width:60px; height:80px; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:12px;}
+  .card.locked {opacity:0.5; cursor:not-allowed;}
+  #elixir {font-weight:bold;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+</head>
+<body>
+<div id="gameContainer">
+  <div id="phaser-game"></div>
+  <div class="ui">
+    <div>Elixir: <span id="elixir">5</span>/10</div>
+    <div class="cards" id="cards-container"></div>
+  </div>
+</div>
 <script>
-const W=960,H=540,Y=[160,380],cfg={type:Phaser.AUTO,width:W,height:H,parent:'phaser-game',backgroundColor:0x16324a,physics:{default:'arcade'},scene:{create,update}};
-new Phaser.Game(cfg);let e=5,m=10,t,pG,gG,T,c=[3,5,2];
-function create(){const s=this;s.add.rectangle(W/2,H/2,W,40,0x1b9bd7).setAlpha(.5);
-T={pL:f(s,100,H/2-120,'p'),pR:f(s,100,H/2+120,'p'),eL:f(s,860,H/2-120,'e'),eR:f(s,860,H/2+120,'e')};
-pG=s.physics.add.group();gG=s.physics.add.group();t=document.getElementById('elixir');r();
-for(let i=1;i<=3;i++)document.getElementById('card-'+i).onclick=()=>a(s,i-1);
-s.input.on('pointerdown',p=>{spawn(s,'p','r',200,p.y<H/2?Y[0]:Y[1])});
-s.time.addEvent({delay:1e3,callback:d,callbackScope:s,loop:!0});
-s.time.addEvent({delay:1e3,callback:()=>{e=Math.min(m,e+1);r()},loop:!0})}
-function update(){[...pG.getChildren()].forEach(u=>o(this,u,gG,T,'p'));
-[...gG.getChildren()].forEach(u=>o(this,u,pG,T,'e'))}
-function f(s,x,y,S){const c=S==='p'?0x0cf59b:0xff6b6b,R=s.add.rectangle(x,y,64,80,c).setStrokeStyle(2,0);R.hp=200;
-R.t=s.add.text(x,y-56,'200',{font:'16px Arial',color:'#fff'}).setOrigin(.5);return R}
-function l(T){T.t.setText(Math.max(0,T.hp));if(T.hp<=0){T.setFillStyle(0x555);T.t.setText('Destroyed')}}
-function spawn(s,S,d,x,y){const v={hp:30,speed:40,atk:8,range:14},c=S==='p'?0x4ec5ff:0xffbf69,q=s.add.circle(x,y,16,c);s.physics.add.existing(q);q.body.setSize(32,32);Object.assign(q,v,{S});
-(S==='p'?pG:gG).add(q);q.t=s.add.text(x,y-26,q.hp,{font:'12px Arial',color:'#000'}).setOrigin(.5);return q}
-function o(s,u,g,T,S){u.t.x=u.x;u.t.y=u.y-26;u.t.setText(Math.max(0,u.hp));if(u.hp<=0){u.t.destroy();u.destroy();return}
-const E=g.getChildren().filter(e=>Math.abs(e.y-u.y)<24);if(E.length){E.sort((a,b)=>Math.abs(a.x-u.x)-Math.abs(b.x-u.x));
-const n=E[0];if(Math.abs(n.x-u.x)>u.range){u.body.setVelocityX(u.speed*(n.x>u.x?1:-1))}else{u.body.setVelocityX(0);if(!u._l||s.time.now-u._l>500){n.hp-=u.atk;u._l=s.time.now}}return}
-const y=S==='p'?(u.y<H/2?T.eR:T.eL):(u.y<H/2?T.pR:T.pL);if(Math.abs(y.y-u.y)<80){if(Math.abs(y.x-u.x)>u.range+10){u.body.setVelocityX(u.speed*(y.x>u.x?1:-1))}else{u.body.setVelocityX(0);if(!u._l||s.time.now-u._l>600){y.hp-=u.atk;l(y);u._l=s.time.now}}}
-else{const tx=S==='p'?W-150:150;u.body.setVelocityX(u.speed*(tx>u.x?1:-1))}}
-function a(s,i){const cost=c[i];if(e<cost){const el=document.getElementById('card-'+(i+1));el.classList.add('locked');setTimeout(()=>el.classList.remove('locked'),300);return}
-e-=cost;r();if(i===0)spawn(s,'p','r',200,Y[0]);if(i===1)spawn(s,'p','r',200,Y[1]);if(i===2){const y=Math.random()>.5?Y[0]:Y[1];gG.getChildren().forEach(e=>{if(Math.abs(e.y-y)<24&&Math.abs(e.x-W/2)<300)e.hp-=15});const t=y===Y[0]?T.eR:T.eL;t.hp-=20;l(t)}}
-function r(){t.innerText=e}function d(){this.aiPool=(this.aiPool||4)+1;this.aiPool=Math.min(10,this.aiPool);if(this.aiPool>=3&&Math.random()<.6){spawn(this,'e','l',W-200,Math.random()>.5?Y[0]:Y[1]);this.aiPool-=3}}
-</script></body></html>
+const W = 540, H = 960;
+let elixir = 5, maxElixir = 10;
+const lanes = [H/3, 2*H/3];
+const cardDefs = [
+  {name:"Slinger", cost:3}, {name:"Giantling", cost:5}, {name:"Bolt", cost:2},
+  {name:"Archer", cost:3}, {name:"Fire Spirit", cost:2}, {name:"MiniGolem", cost:4},
+  {name:"Ice Wizard", cost:4}, {name:"Bomb", cost:3}
+];
+
+const config = {
+  type: Phaser.AUTO, width: W, height: H, parent: 'phaser-game',
+  backgroundColor: 0x16324a,
+  physics: {default:'arcade', arcade:{debug:false}},
+  scene: {create, update}
+};
+
+let game = new Phaser.Game(config);
+let playerGroup, enemyGroup, towers, cardQueue, elixirDisplay;
+
+function create() {
+  const scene = this;
+
+  // Towers
+  towers = {
+    playerTop: makeTower(scene, W/2, 100, 'player'),
+    playerBottom: makeTower(scene, W/2, H-150, 'player'),
+    enemyTop: makeTower(scene, W/2, 150, 'enemy'),
+    enemyBottom: makeTower(scene, W/2, H-200, 'enemy')
+  };
+
+  // Groups
+  playerGroup = scene.physics.add.group();
+  enemyGroup = scene.physics.add.group();
+
+  // UI Cards
+  cardQueue = [...cardDefs];
+  elixirDisplay = document.getElementById('elixir');
+  renderCards();
+
+  // Click to spawn units (optional tap battlefield)
+  scene.input.on('pointerdown', p => {
+    // Auto lane choice by click position
+    const lane = p.y < H/2 ? lanes[0] : lanes[1];
+    spawnUnit(scene, 'player', 100, lane, cardQueue[0]);
+  });
+
+  // Regenerate elixir
+  scene.time.addEvent({delay:1000, callback:()=>{
+    elixir = Math.min(maxElixir, elixir+1);
+    elixirDisplay.innerText = elixir;
+  }, loop:true});
+
+  // Enemy AI spawns units more aggressively
+  scene.time.addEvent({delay:1200, callback:()=>{
+    if(Math.random()<0.7) {
+      const lane = lanes[Math.floor(Math.random()*2)];
+      const card = cardDefs[Math.floor(Math.random()*cardDefs.length)];
+      spawnUnit(scene,'enemy', W-100, lane, card);
+    }
+  }, loop:true});
+}
+
+function update() {
+  updateUnits(playerGroup, enemyGroup);
+  updateUnits(enemyGroup, playerGroup);
+}
+
+function makeTower(scene, x, y, type) {
+  const color = type==='player'?0x0cf59b:0xff6b6b;
+  const tower = scene.add.rectangle(x, y, 80, 80, color).setStrokeStyle(2,0xffffff);
+  tower.hp = 200;
+  tower.text = scene.add.text(x, y-60, tower.hp, {font:'16px Arial', fill:'#fff'}).setOrigin(0.5);
+  tower.type = type;
+  return tower;
+}
+
+function renderCards() {
+  const container = document.getElementById('cards-container');
+  container.innerHTML = '';
+  cardQueue.slice(0,8).forEach((c,i)=>{
+    const div = document.createElement('div');
+    div.className='card';
+    div.id='card-'+i;
+    div.innerHTML = `${c.name}<br>${c.cost}`;
+    div.onclick = ()=>playCard(i);
+    container.appendChild(div);
+  });
+}
+
+function playCard(index) {
+  const card = cardQueue[index];
+  if(elixir<card.cost){
+    const el = document.getElementById('card-'+index);
+    el.classList.add('locked');
+    setTimeout(()=>el.classList.remove('locked'),300);
+    return;
+  }
+  elixir -= card.cost;
+  elixirDisplay.innerText = elixir;
+  // Spawn at bottom lane for player
+  const lane = lanes[index%2];
+  spawnUnit(game.scene.scenes[0], 'player', 100, lane, card);
+  // Cycle card
+  cardQueue.push(cardQueue.splice(index,1)[0]);
+  renderCards();
+}
+
+function spawnUnit(scene, side, x, y, card) {
+  const color = side==='player'?0x4ec5ff:0xffbf69;
+  const unit = scene.add.rectangle(x,y,40,40,color);
+  scene.physics.add.existing(unit);
+  unit.body.setSize(32,32);
+  unit.hp = 30 + (card.cost*5);
+  unit.speed = 40 + Math.random()*10;
+  unit.atk = 8 + card.cost*2;
+  unit.range = 20;
+  unit.side = side;
+  unit.text = scene.add.text(x,y-26,unit.hp,{font:'12px Arial',fill:'#000'}).setOrigin(0.5);
+  if(side==='player') playerGroup.add(unit);
+  else enemyGroup.add(unit);
+  return unit;
+}
+
+function updateUnits(group, enemies) {
+  group.getChildren().forEach(u=>{
+    u.text.x = u.x; u.text.y = u.y-26;
+    u.text.setText(Math.max(0,u.hp));
+    if(u.hp<=0){ u.destroy(); u.text.destroy(); return; }
+    // Find nearest enemy unit
+    let nearest = null;
+    enemies.getChildren().forEach(e=>{
+      if(Math.abs(e.y-u.y)<40){
+        if(!nearest || Math.abs(e.x-u.x)<Math.abs(nearest.x-u.x)) nearest=e;
+      }
+    });
+    if(nearest){
+      if(Math.abs(nearest.x-u.x)>u.range) u.body.setVelocityX(u.speed*(nearest.x>u.x?1:-1));
+      else { u.body.setVelocityX(0); if(!u.lastAtk || Date.now()-u.lastAtk>500){ nearest.hp -= u.atk; u.lastAtk=Date.now(); } }
+      return;
+    }
+    // Attack tower if no units
+    const tower = u.side==='player'? (u.y<H/2? towers.enemyTop:towers.enemyBottom) : (u.y<H/2? towers.playerTop:towers.playerBottom);
+    if(Math.abs(tower.y-u.y)<80){
+      if(Math.abs(tower.x-u.x)>u.range) u.body.setVelocityX(u.speed*(tower.x>u.x?1:-1));
+      else { u.body.setVelocityX(0); if(!u.lastAtk || Date.now()-u.lastAtk>600){ tower.hp-=u.atk; tower.text.setText(Math.max(0,tower.hp)); u.lastAtk=Date.now(); } }
+    } else { const tx = u.side==='player'? W-100 : 100; u.body.setVelocityX(u.speed*(tx>u.x?1:-1)); }
+  });
+}
+</script>
+</body>
+</html>
