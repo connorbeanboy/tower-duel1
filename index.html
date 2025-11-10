@@ -5,31 +5,37 @@
 <title>Tower Duel</title>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
 <style>
-  body { margin:0; }
+  body { margin:0; overflow:hidden; }
   canvas { display:block; margin:0 auto; }
   #hand { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); display:flex; gap:10px; }
   .card { width:60px; height:80px; background:#eee; border:2px solid #333; border-radius:8px; display:flex; justify-content:center; align-items:center; font-weight:bold; cursor:pointer; }
+  #elixirBar { position:absolute; top:10px; left:50%; transform:translateX(-50%); width:300px; height:20px; background:#444; border:2px solid #222; border-radius:10px; }
+  #elixirFill { width:0%; height:100%; background:#00f; border-radius:10px; }
+  #message { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:32px; font-weight:bold; color:white; text-shadow:2px 2px 4px #000; display:none; }
 </style>
 </head>
 <body>
+<div id="elixirBar"><div id="elixirFill"></div></div>
 <div id="hand"></div>
+<div id="message"></div>
 <script>
 const config = {
     type: Phaser.AUTO,
     width: 540,
     height: 960,
     backgroundColor: '#6AB04C',
-    physics: { default: 'arcade', arcade: { debug: false } },
+    physics: { default:'arcade', arcade:{ debug:false } },
     scene: { preload, create, update }
 };
 const game = new Phaser.Game(config);
 
-let playerTower, enemyTower, projectiles, units, laneY = [380, 580];
-let cards = [];
-let currentCard = 0;
+let playerTower, enemyTower, projectiles, units, bridges=[], lanesY=[380,580];
+let cards=[], currentCard=0;
+let elixir=10, maxElixir=10, elixirRegenRate=1; // per second
+let gameOver=false;
 
 function preload() {
-    // Load Kenney free assets (Top-Down Tanks / cartoon style)
+    // Kenney assets
     this.load.image('grass','https://kenney.nl/assets/tiles/kenney_tileset/tilesheet_kenney.png');
     this.load.image('bridge','https://kenney.nl/assets/topdown-tanks/tileBridgeA.png');
     this.load.image('playerTower','https://kenney.nl/assets/topdown-tanks/tankBody_green_outline.png');
@@ -43,79 +49,124 @@ function create() {
     // Background
     this.add.rectangle(270,480,540,960,0x6AB04C); // grass
     this.add.rectangle(270,480,540,100,0x1F75FE); // river
-    this.add.rectangle(140,480,60,100,0xA0522D); // left bridge
-    this.add.rectangle(400,480,60,100,0xA0522D); // right bridge
+
+    // Bridges
+    bridges.push(this.physics.add.staticImage(140,480,'bridge').setScale(1).refreshBody());
+    bridges.push(this.physics.add.staticImage(400,480,'bridge').setScale(1).refreshBody());
 
     // Towers
     playerTower = this.physics.add.image(270,850,'playerTower').setScale(0.6).setImmovable(true);
+    playerTower.hp = 100;
     enemyTower = this.physics.add.image(270,110,'enemyTower').setScale(0.6).setImmovable(true);
+    enemyTower.hp = 100;
 
+    // Groups
     projectiles = this.physics.add.group();
     units = this.physics.add.group();
 
     // Cards
     const cardData = [
-        {name:'Tank', type:'ground'},
-        {name:'Archer', type:'ranged'},
-        {name:'Bolt', type:'spell'},
-        {name:'Mini', type:'ground'},
-        {name:'Ice', type:'ranged'},
-        {name:'Fire', type:'spell'},
-        {name:'Giant', type:'ground'},
-        {name:'Slinger', type:'ground'}
+        {name:'Tank', type:'ground', cost:3},
+        {name:'Archer', type:'ranged', cost:2},
+        {name:'Bolt', type:'spell', cost:4},
+        {name:'Mini', type:'ground', cost:1},
+        {name:'Ice', type:'ranged', cost:2},
+        {name:'Fire', type:'spell', cost:4},
+        {name:'Giant', type:'ground', cost:5},
+        {name:'Slinger', type:'ground', cost:2}
     ];
-    const handDiv = document.getElementById('hand');
+    const handDiv=document.getElementById('hand');
     cardData.forEach((c,i)=>{
-        const card = document.createElement('div');
+        const card=document.createElement('div');
         card.className='card';
         card.innerText=c.name;
-        card.onclick=()=>spawnUnit(c.name);
+        card.onclick=()=>spawnUnit(c);
         handDiv.appendChild(card);
         cards.push(c);
     });
 
-    // Enemy auto-spawn for demo
+    // Enemy auto-spawn
     this.time.addEvent({ delay:2000, callback:spawnEnemy, callbackScope:this, loop:true });
 }
 
-function spawnUnit(name){
-    const lane = laneY[Math.floor(Math.random()*laneY.length)];
-    const unit = units.create(270,850,lane.includes('Tank')?'tank':'archer');
+function spawnUnit(card) {
+    if(gameOver) return;
+    if(elixir<card.cost) return;
+    elixir-=card.cost;
+
+    const lane=lanesY[Math.floor(Math.random()*lanesY.length)];
+    let spriteKey=(card.name.includes('Archer')||card.name.includes('Ice'))?'archer':'tank';
+    const unit=units.create(270,850,spriteKey);
     unit.setData('target',enemyTower);
-    unit.setData('speed',50);
+    unit.setData('speed',100);
+    unit.setData('lane',lane);
+    unit.setData('isEnemy',false);
 }
 
-function spawnEnemy(){
-    const lane = laneY[Math.floor(Math.random()*laneY.length)];
-    const enemy = units.create(270,110,'tank');
+function spawnEnemy() {
+    if(gameOver) return;
+    const lane=lanesY[Math.floor(Math.random()*lanesY.length)];
+    const enemy=units.create(270,110,'tank');
     enemy.setData('target',playerTower);
-    enemy.setData('speed',50);
-    enemy.setData('enemy',true);
+    enemy.setData('speed',60);
+    enemy.setData('lane',lane);
+    enemy.setData('isEnemy',true);
 }
 
-function update(time, delta){
-    units.getChildren().forEach(u=>{
-        const target = u.getData('target');
-        if(!target) return;
-        const dir = target.y > u.y?1:-1;
-        u.y += dir * u.getData('speed') * delta/1000;
+function update(time, delta) {
+    if(gameOver) return;
 
-        // Shoot projectile if near tower
-        if(Math.abs(u.y - target.y)<50 && !u.getData('cooldown')){
+    // Update elixir
+    elixir+=elixirRegenRate*delta/1000;
+    if(elixir>maxElixir) elixir=maxElixir;
+    document.getElementById('elixirFill').style.width=(elixir/maxElixir*100)+'%';
+
+    // Move units
+    units.getChildren().forEach(u=>{
+        const target=u.getData('target');
+        if(!target) return;
+
+        // Move toward lane x (bridge)
+        const bridgeX = u.x<270 ? 140 : 400;
+        if(Math.abs(u.x-bridgeX)>5) {
+            u.x += (bridgeX-u.x)*0.05;
+        } else {
+            // Move toward target y
+            const dir = target.y>u.y?1:-1;
+            u.y += dir*u.getData('speed')*delta/1000;
+        }
+
+        // Shoot at tower if close
+        if(Math.abs(u.y-target.y)<50 && !u.getData('cooldown')) {
             const b = projectiles.create(u.x,u.y,'bullet');
-            b.setVelocityY(dir*300);
+            const velocity = u.getData('isEnemy') ? 300 : -300;
+            b.setVelocityY(velocity);
+            b.setData('owner',u.getData('isEnemy')?'enemy':'player');
             u.setData('cooldown',true);
             setTimeout(()=>u.setData('cooldown',false),1000);
         }
     });
 
-    // Remove offscreen projectiles
+    // Projectiles hit towers
     projectiles.getChildren().forEach(p=>{
-        if(p.y<0 || p.y>960) p.destroy();
+        if(p.y<0 || p.y>960) { p.destroy(); return; }
+        if(p.getData('owner')==='player' && Phaser.Geom.Intersects.RectangleToRectangle(p.getBounds(), enemyTower.getBounds())) {
+            enemyTower.hp-=5; p.destroy();
+        }
+        if(p.getData('owner')==='enemy' && Phaser.Geom.Intersects.RectangleToRectangle(p.getBounds(), playerTower.getBounds())) {
+            playerTower.hp-=5; p.destroy();
+        }
     });
 
-    // Collision
-    this.physics.overlap(projectiles, [playerTower,enemyTower], (b,t)=>{ b.destroy(); });
+    // Check win/lose
+    if(enemyTower.hp<=0){ endGame('You Win!'); }
+    if(playerTower.hp<=0){ endGame('You Lose!'); }
+}
+
+function endGame(msg){
+    gameOver=true;
+    document.getElementById('message').innerText=msg;
+    document.getElementById('message').style.display='block';
 }
 </script>
 </body>
